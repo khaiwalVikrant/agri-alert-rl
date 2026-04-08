@@ -3,6 +3,8 @@ __pycache__/
 *.pyo
 .env
 .env.*
+.venv/
+venv/
 outputs/
 *.egg-info/
 dist/
@@ -13,6 +15,6 @@ build/
 # Kiro IDE config
 .kiro/
 
-# Markdown docs (except README.md for HF Spaces)
-*.md
-!README.md
+# Markdown spec docs (keep README.md for HF Spaces)
+docs/*.md
+.kiro/**/*.md
