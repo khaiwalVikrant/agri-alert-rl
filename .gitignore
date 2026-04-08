@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+outputs/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.hypothesis/
+
+# Kiro IDE config
+.kiro/
+
+# Markdown docs (except README.md for HF Spaces)
+*.md
+!README.md

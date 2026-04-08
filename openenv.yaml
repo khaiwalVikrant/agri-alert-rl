@@ -1,0 +1,63 @@
+name: rice-blast-env
+version: "1.0.0"
+description: >
+  OpenEnv-compliant RL environment simulating rice blast disease (Magnaporthe oryzae)
+  early detection and treatment decision-making. An agent observes crop image features,
+  weather data, and field metadata, then selects one of 5 interventions each timestep.
+  Disease can destroy a crop within 24 simulated hours if undetected.
+tags:
+  - openenv
+  - agriculture
+  - disease-detection
+  - rice-blast
+
+observation_space:
+  type: object
+  properties:
+    lesion_coverage:    {type: number, minimum: 0.0, maximum: 1.0}
+    leaf_color_index:   {type: number, minimum: 0.0, maximum: 1.0}
+    lesion_pattern:     {type: string, enum: [none, diamond, gray_center, brown_border, environmental_stress]}
+    temperature:        {type: number, minimum: 15.0, maximum: 35.0}
+    humidity:           {type: number, minimum: 0.0, maximum: 1.0}
+    rainfall:           {type: number, minimum: 0.0}
+    wind_speed:         {type: number, minimum: 0.0}
+    crop_stage:         {type: string, enum: [seedling, tillering, booting, heading, ripening]}
+    days_since_last_treatment: {type: integer, minimum: 0}
+    field_size_ha:      {type: number, exclusiveMinimum: 0.0}
+    timestep:           {type: integer, minimum: 0}
+
+action_space:
+  type: object
+  properties:
+    intervention:
+      type: string
+      enum: [do_nothing, send_alert, apply_fungicide, call_agronomist, increase_monitoring_frequency]
+    target_field_id:
+      type: integer
+      minimum: 0
+
+reward:
+  range: [-1.0, 1.0]
+  description: >
+    +1.0 early detection in window, +0.5 mid-stage intervention,
+    -0.3 false positive fungicide, -0.5 missed late-stage disease,
+    -0.1 inaction during active disease
+
+tasks:
+  - name: easy
+    difficulty: easy
+    description: Single field, clear diamond lesion pattern, low noise. Detect within Early_Stage_Window (6 timesteps).
+    grader: server.environment.EasyGrader
+    max_timesteps: 48
+
+  - name: medium
+    difficulty: medium
+    description: Single field, high humidity noise obscures blast vs environmental stress. Avoid false positives.
+    grader: server.environment.MediumGrader
+    max_timesteps: 48
+
+  - name: hard
+    difficulty: hard
+    description: Three fields with staggered onset. One treatment per timestep. Minimize total severity.
+    grader: server.environment.HardGrader
+    max_timesteps: 72
