@@ -197,17 +197,17 @@ class EasyGrader(BaseGrader):
         for step in trajectory:
             early_dets = step.get("early_detections", [False])
             if early_dets and early_dets[0]:
-                return 1.0
+                return 0.999
         # Partial credit: mid-stage corrective intervention
         for step in trajectory:
             stages = step.get("disease_stages", ["none"])
             if stages and stages[0] == "mid" and step.get("action_was_corrective", False):
                 return 0.5
-        return 0.0
+        return 0.001
 
 
 class MediumGrader(BaseGrader):
-    """Score = correct_detections/1 - 0.3*false_positives, clamped [0, 1]."""
+    """Score = correct_detections/1 - 0.3*false_positives, clamped (0, 1)."""
 
     def grade(self, trajectory: list[dict]) -> float:
         early_detected = any(
@@ -218,19 +218,21 @@ class MediumGrader(BaseGrader):
         correct = 1.0 if early_detected else 0.0
         false_positives = sum(1 for step in trajectory if step.get("false_positive", False))
         penalty = min(1.0, 0.3 * false_positives)
-        return max(0.0, correct - penalty)
+        score = max(0.0, correct - penalty)
+        return max(0.001, min(0.999, score))
 
 
 class HardGrader(BaseGrader):
-    """Score = 1.0 - mean(final_severities across 3 fields), clamped [0, 1]."""
+    """Score = 1.0 - mean(final_severities across 3 fields), clamped (0, 1)."""
 
     def grade(self, trajectory: list[dict]) -> float:
         if not trajectory:
-            return 0.0
+            return 0.001
         last_info = trajectory[-1]
         severities = last_info.get("severities", [0.0])
         mean_severity = sum(severities) / len(severities) if severities else 0.0
-        return max(0.0, min(1.0, 1.0 - mean_severity))
+        score = 1.0 - mean_severity
+        return max(0.001, min(0.999, score))
 
 
 # ---------------------------------------------------------------------------

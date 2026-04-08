@@ -106,6 +106,7 @@ def run_episode(env, task: str, grader_cls, client: OpenAI, model_name: str) -> 
 
     try:
         done = False
+        trajectory = []
         while not done:
             obs_dict = obs.model_dump() if hasattr(obs, "model_dump") else dict(obs)
             prompt = json.dumps({
@@ -141,17 +142,13 @@ def run_episode(env, task: str, grader_cls, client: OpenAI, model_name: str) -> 
             else:
                 obs, reward, done, info = result.observation, result.reward, result.done, result.info
 
+            trajectory.append(info)
             steps_taken += 1
             rewards.append(reward)
             log_step(step=steps_taken, action=intervention, reward=reward, done=done, error=error)
 
-        # Grade the episode
-        trajectory = []
-        # Rebuild trajectory from env internal state if available
-        if hasattr(env, '_env') and hasattr(env._env, '_trajectory'):
-            trajectory = env._env._trajectory
         score = grader_cls().grade(trajectory)
-        score = min(max(score, 0.0), 1.0)
+        score = min(max(score, 0.001), 0.999)
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     finally:
