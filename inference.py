@@ -21,13 +21,7 @@ API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME")
 
-# Validate required env vars
-if not API_KEY:
-    print("Error: HF_TOKEN (or API_KEY) environment variable is not set.", file=sys.stderr)
-    sys.exit(1)
-if not MODEL_NAME:
-    print("Error: MODEL_NAME environment variable is not set.", file=sys.stderr)
-    sys.exit(1)
+# Validate required env vars — deferred to main() so imports work cleanly
 
 # Constants
 NUM_EPISODES = 3
@@ -68,7 +62,7 @@ def parse_action(response_text: str) -> str:
             return action
     return FALLBACK_ACTION
 
-def run_episode(env, task: str, grader_cls, client: OpenAI) -> float:
+def run_episode(env, task: str, grader_cls, client: OpenAI, model_name: str) -> float:
     """Run one episode and return the grader score."""
     obs = env.reset(task=task)
     trajectory = []
@@ -88,7 +82,7 @@ def run_episode(env, task: str, grader_cls, client: OpenAI) -> float:
 
         try:
             completion = client.chat.completions.create(
-                model=MODEL_NAME,
+                model=model_name,
                 temperature=TEMPERATURE,
                 max_tokens=MAX_TOKENS,
                 messages=[
@@ -119,7 +113,19 @@ def run_episode(env, task: str, grader_cls, client: OpenAI) -> float:
 
 
 def main() -> None:
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    # Re-read env vars at runtime (validator injects them before calling main)
+    api_base_url = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+    api_key = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+    model_name = os.getenv("MODEL_NAME")
+
+    if not api_key:
+        print("Error: HF_TOKEN (or API_KEY) environment variable is not set.", file=sys.stderr)
+        sys.exit(1)
+    if not model_name:
+        print("Error: MODEL_NAME environment variable is not set.", file=sys.stderr)
+        sys.exit(1)
+
+    client = OpenAI(base_url=api_base_url, api_key=api_key)
 
     # Use the sync environment directly (no server needed for inference)
     from server.environment import RiceBlastEnv, EasyGrader, MediumGrader, HardGrader
@@ -136,7 +142,7 @@ def main() -> None:
     for task in TASKS:
         task_scores = []
         for ep in range(NUM_EPISODES):
-            score = run_episode(env, task, grader_map[task], client)
+            score = run_episode(env, task, grader_map[task], client, model_name)
             task_scores.append(score)
             print(f"  {task} episode {ep+1}/{NUM_EPISODES}: {score:.3f}")
         scores[task] = sum(task_scores) / len(task_scores)
