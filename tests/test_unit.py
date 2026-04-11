@@ -74,9 +74,9 @@ def test_manifest_contains_required_keys():
 
 def test_state_does_not_advance_episode(env):
     env.reset("easy", seed=42)
-    state1 = env.state()
-    state2 = env.state()
+    state1 = env.state
+    state2 = env.state
     assert state1.timestep == state2.timestep == 0
     env.step(RiceBlastAction(intervention="do_nothing"))
-    state3 = env.state()
+    state3 = env.state
     assert state3.timestep == 1

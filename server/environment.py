@@ -395,20 +395,23 @@ class RiceBlastEnvironment(_BaseEnvironment):
         """Async version of step — returns just the observation for openenv-core server."""
         result = self.step(action)
         if isinstance(result, tuple):
-            obs, reward, done, info = result
-            return obs
-        # StepResult case
-        return result.observation
+            obs = result[0]
+        elif hasattr(result, 'observation'):
+            obs = result.observation
+        else:
+            obs = result
+        return obs
 
+    @property
     def state(self) -> RiceBlastObservation:
-        """Return current observation without advancing the episode."""
+        """Return current observation without advancing the episode (property, required by openenv-core)."""
         if self._fields is None:
             raise RuntimeError("Environment must be reset before calling state()")
         return self._build_observation()
 
     async def async_state(self) -> RiceBlastObservation:
         """Async version for direct async usage."""
-        return self.state()
+        return self.state
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -530,17 +533,16 @@ class RiceBlastEnv:
         self._loop = asyncio.new_event_loop()
 
     def reset(self, task: str = "easy", seed: int | None = None):
-        return self._loop.run_until_complete(self._env.reset(task=task, seed=seed))
+        return self._env.reset(task=task, seed=seed)
 
     def step(self, action):
-        result = self._loop.run_until_complete(self._env.step(action))
-        # Normalise to tuple regardless of StepResult vs tuple
-        if OPENENV_AVAILABLE and StepResult is not None and hasattr(result, "observation"):
+        result = self._env.step(action)
+        if hasattr(result, "observation"):
             return result.observation, result.reward, result.done, result.info
         return result
 
     def state(self):
-        return self._env.state()
+        return self._env.state
 
     def __del__(self):
         try:

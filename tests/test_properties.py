@@ -74,8 +74,8 @@ def test_state_is_nonmutating(seed):
     env = RiceBlastEnvironment()
     env.reset("easy", seed=seed)
     ts_before = env._timestep
-    env.state()
-    env.state()
+    _ = env.state
+    _ = env.state
     assert env._timestep == ts_before
 
 @settings(max_examples=100)
