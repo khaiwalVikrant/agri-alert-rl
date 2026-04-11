@@ -4,38 +4,58 @@ from __future__ import annotations
 
 import sys
 import os
+from typing import Dict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from models import RiceBlastAction, RiceBlastObservation
 
 try:
-    from openenv.core.env_client import EnvClient as _BaseEnvClient
+    from openenv.core import EnvClient
+    from openenv.core.client_types import StepResult
+    from openenv.core.env_server.types import State
     OPENENV_AVAILABLE = True
 except ImportError:
-    _BaseEnvClient = object
     OPENENV_AVAILABLE = False
 
 
 if OPENENV_AVAILABLE:
-    class RiceBlastEnv(_BaseEnvClient):
-        """OpenEnv-compliant async client backed by openenv-core WebSocket transport."""
-        action_type = RiceBlastAction
-        observation_type = RiceBlastObservation
+    class RiceBlastEnv(EnvClient[RiceBlastAction, RiceBlastObservation, State]):
+        """OpenEnv-compliant client backed by openenv-core WebSocket transport."""
+
+        def _step_payload(self, action: RiceBlastAction) -> Dict:
+            """Convert RiceBlastAction to JSON payload for step message."""
+            return {
+                "intervention": action.intervention,
+                "target_field_id": action.target_field_id,
+            }
+
+        def _parse_result(self, payload: Dict) -> StepResult[RiceBlastObservation]:
+            """Parse server response into StepResult[RiceBlastObservation]."""
+            obs_data = payload.get("observation", payload)
+            observation = RiceBlastObservation(**obs_data)
+            return StepResult(
+                observation=observation,
+                reward=payload.get("reward", 0.0),
+                done=payload.get("done", False),
+            )
+
+        def _parse_state(self, payload: Dict) -> State:
+            """Parse server response into State object."""
+            return State(
+                episode_id=payload.get("episode_id"),
+                step_count=payload.get("step_count", 0),
+            )
 
 else:
     import httpx
 
     class RiceBlastEnv:  # type: ignore[no-redef]
-        """Sync HTTP client for the Rice Blast FastAPI server (fallback when openenv-core is absent)."""
+        """Sync HTTP client fallback when openenv-core is absent."""
 
         def __init__(self, base_url: str = "https://khaiwal009-agri-alert-rl.hf.space"):
             self.base_url = base_url.rstrip("/")
             self._client = httpx.Client(timeout=30.0)
-
-        # ------------------------------------------------------------------
-        # Public API
-        # ------------------------------------------------------------------
 
         def reset(self, task: str = "easy", seed: int | None = None) -> RiceBlastObservation:
             params: dict = {"task": task}
@@ -62,7 +82,6 @@ else:
             return RiceBlastObservation(**r.json())
 
         def sync(self) -> "RiceBlastEnv":
-            """Return self for compatibility with openenv-core sync() pattern."""
             return self
 
         def close(self) -> None:

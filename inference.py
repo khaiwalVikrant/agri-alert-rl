@@ -180,10 +180,10 @@ def main() -> None:
     from server.environment import RiceBlastEnv, EasyGrader, MediumGrader, HardGrader
 
     grader_map = {"easy": EasyGrader, "medium": MediumGrader, "hard": HardGrader}
-    env = RiceBlastEnv()
     all_scores = {}
 
     for task in TASKS:
+        env = RiceBlastEnv()  # fresh env per task to avoid event loop issues
         score = run_episode(env, task, grader_map[task], client, model_name)
         all_scores[task] = score
 

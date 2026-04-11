@@ -85,10 +85,10 @@ def test_manifest_contains_required_keys():
 @pytest.mark.asyncio
 async def test_state_does_not_advance_episode(env):
     await env.reset("easy", seed=42)
-    state1 = await env.state()
-    state2 = await env.state()
+    state1 = env.state()
+    state2 = env.state()
     assert state1.timestep == state2.timestep == 0
     # Step once and verify state reflects new timestep
     await env.step(RiceBlastAction(intervention="do_nothing"))
-    state3 = await env.state()
+    state3 = env.state()
     assert state3.timestep == 1

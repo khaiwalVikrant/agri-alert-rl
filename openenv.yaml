@@ -5,6 +5,7 @@ description: >
   early detection and treatment decision-making. An agent observes crop image features,
   weather data, and field metadata, then selects one of 5 interventions each timestep.
   Disease can destroy a crop within 24 simulated hours if undetected.
+base_path: /web
 tags:
   - openenv
   - agriculture
