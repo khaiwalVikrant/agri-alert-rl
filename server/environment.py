@@ -25,10 +25,15 @@ try:
             from openenv.core.env_server.types import StepResult
         except ImportError:
             from openenv.core.types import StepResult
+    try:
+        from openenv.core.env_server.types import State as _State
+    except ImportError:
+        _State = None
     OPENENV_AVAILABLE = True
 except ImportError:
     _BaseEnvironment = object
     StepResult = None
+    _State = None
     OPENENV_AVAILABLE = False
 
 
@@ -403,13 +408,19 @@ class RiceBlastEnvironment(_BaseEnvironment):
         return obs
 
     @property
-    def state(self) -> RiceBlastObservation:
-        """Return current observation without advancing the episode (property, required by openenv-core)."""
+    def state(self):
+        """Return State object with episode metadata (property, required by openenv-core)."""
+        if _State is not None:
+            return _State(
+                episode_id=None,
+                step_count=self._timestep,
+            )
+        # Fallback: return observation if State not available
         if self._fields is None:
             raise RuntimeError("Environment must be reset before calling state()")
         return self._build_observation()
 
-    async def async_state(self) -> RiceBlastObservation:
+    async def async_state(self):
         """Async version for direct async usage."""
         return self.state
 
