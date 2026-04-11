@@ -319,8 +319,10 @@ class RiceBlastEnvironment(_BaseEnvironment):
         if self._done:
             raise RuntimeError("Episode is done; call reset() to start a new episode")
         if action.target_field_id >= len(self._fields):
-            raise ValueError(
-                f"field_id {action.target_field_id} not valid for task with {len(self._fields)} fields"
+            # Clamp to valid range instead of crashing — handles UI defaults sending field_id=1 on single-field tasks
+            action = RiceBlastAction(
+                intervention=action.intervention,
+                target_field_id=len(self._fields) - 1,
             )
 
         prev_fields = copy.deepcopy(self._fields)
