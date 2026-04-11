@@ -38,11 +38,11 @@ action_space:
       minimum: 0
 
 reward:
-  range: [-1.0, 1.0]
+  range: [0.0, 1.0]
   description: >
-    +1.0 early detection in window, +0.5 mid-stage intervention,
-    -0.3 false positive fungicide, -0.5 missed late-stage disease,
-    -0.1 inaction during active disease
+    1.0 early detection in window, 0.5 mid-stage intervention or neutral,
+    0.2 inaction during active disease, 0.1 false positive fungicide,
+    0.0 missed late-stage disease
 
 tasks:
   - name: easy

@@ -37,7 +37,7 @@ def test_false_positive_reward(env):
     env._fields[0].disease_stage = "none"
     action = RiceBlastAction(intervention="apply_fungicide", target_field_id=0)
     obs = env.step(action)
-    assert obs.reward == pytest.approx(-0.3, abs=0.01)
+    assert obs.reward == pytest.approx(0.1, abs=0.01)
 
 def test_early_detection_reward(env):
     env.reset("easy", seed=42)

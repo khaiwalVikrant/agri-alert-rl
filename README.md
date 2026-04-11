@@ -61,15 +61,15 @@ An agent observes simulated crop image features, weather data, and field metadat
 ## Reward Function
 
 ```
-reward = clamp(raw_reward, -1.0, 1.0)
+reward = clamp(raw_reward, 0.0, 1.0)
 
 +1.0  early detection: action ∈ {send_alert, apply_fungicide, call_agronomist}
        AND disease_stage == "early" AND timestep - onset ≤ 6
 +0.5  mid-stage intervention: same actions AND disease_stage == "mid"
--0.3  false positive: apply_fungicide AND disease_stage == "none"
--0.5  missed disease: disease_stage == "late" AND no prior intervention
--0.1  inaction penalty: do_nothing AND disease_stage ∈ {early, mid}
- 0.0  otherwise
++0.5  neutral: correct action on healthy field
++0.2  inaction penalty: do_nothing AND disease_stage ∈ {early, mid}
++0.1  false positive: apply_fungicide AND disease_stage == "none"
+ 0.0  missed disease: disease_stage == "late" AND no prior intervention
 ```
 
 ## Baseline Scores

@@ -436,45 +436,41 @@ class RiceBlastEnvironment(_BaseEnvironment):
             if is_target:
                 r = self._reward_for_target(action, prev_f)
             else:
-                # Non-target fields: penalise if late stage with no prior intervention
                 new_f = next(f for f in new_fields if f.field_id == prev_f.field_id)
-                if new_f.disease_stage == "late" and not new_f.early_detection_recorded:
-                    r = -0.5
-                else:
-                    r = 0.0
+                r = 0.0 if (new_f.disease_stage == "late" and not new_f.early_detection_recorded) else 0.5
             rewards.append(r)
 
-        raw = sum(rewards) / len(rewards) if rewards else 0.0
-        return float(max(-1.0, min(1.0, raw)))
+        raw = sum(rewards) / len(rewards) if rewards else 0.5
+        return float(max(0.0, min(1.0, raw)))
 
     def _reward_for_target(self, action: RiceBlastAction, prev_f: FieldState) -> float:
-        """Compute reward for the targeted field based on the 5 reward cases."""
+        """Compute reward for the targeted field. Returns value in [0.0, 1.0]."""
         intervention = action.intervention
 
-        # Case 1: early detection within window
+        # Case 1: early detection within window → maximum reward
         if (intervention in {"send_alert", "apply_fungicide", "call_agronomist"}
                 and prev_f.disease_stage == "early"
                 and self._timestep - prev_f.onset_timestep <= 6):
             return 1.0
 
-        # Case 2: mid-stage corrective intervention
+        # Case 2: mid-stage corrective intervention → partial reward
         if (intervention in {"send_alert", "apply_fungicide", "call_agronomist"}
                 and prev_f.disease_stage == "mid"):
             return 0.5
 
-        # Case 3: false positive fungicide
+        # Case 3: false positive fungicide → small penalty (but still > 0)
         if intervention == "apply_fungicide" and prev_f.disease_stage == "none":
-            return -0.3
+            return 0.1
 
-        # Case 4: late stage with no prior corrective intervention
+        # Case 4: late stage with no prior corrective intervention → near-zero
         if prev_f.disease_stage == "late" and not prev_f.early_detection_recorded:
-            return -0.5
+            return 0.0
 
-        # Case 5: inaction during active disease
+        # Case 5: inaction during active disease → low reward
         if intervention == "do_nothing" and prev_f.disease_stage in {"early", "mid"}:
-            return -0.1
+            return 0.2
 
-        return 0.0
+        return 0.5  # neutral action on healthy field
 
     def _build_observation(self) -> RiceBlastObservation:
         primary = self._fields[0]
