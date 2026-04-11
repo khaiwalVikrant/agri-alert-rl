@@ -393,7 +393,9 @@ class RiceBlastEnvironment(_BaseEnvironment):
         return obs, reward, self._done, info
 
     def step(self, action: RiceBlastAction) -> RiceBlastObservation:
-        """Advance simulation one timestep — returns observation (openenv-core compatible)."""
+        """Advance simulation one timestep — auto-resets if no episode is active or done."""
+        if self._fields is None or self._done:
+            self.reset()
         obs, reward, done, info = self._step_raw(action)
         return obs
 

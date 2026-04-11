@@ -14,17 +14,19 @@ def test_reset_returns_valid_observation(env):
     assert 0.0 <= obs.humidity <= 1.0
     assert obs.timestep == 0
 
-def test_step_before_reset_raises():
+def test_step_before_reset_auto_resets():
     env = RiceBlastEnvironment()
     action = RiceBlastAction(intervention="do_nothing")
-    with pytest.raises(RuntimeError, match="reset"):
-        env.step(action)
+    # Should auto-reset instead of raising
+    obs = env.step(action)
+    assert isinstance(obs, RiceBlastObservation)
 
-def test_step_after_done_raises(env):
+def test_step_after_done_auto_resets(env):
     env.reset("easy", seed=0)
     env._done = True
-    with pytest.raises(RuntimeError, match="done"):
-        env.step(RiceBlastAction(intervention="do_nothing"))
+    # Should auto-reset instead of raising
+    obs = env.step(RiceBlastAction(intervention="do_nothing"))
+    assert isinstance(obs, RiceBlastObservation)
 
 def test_action_validation_rejects_invalid():
     from pydantic import ValidationError
