@@ -18,23 +18,23 @@ from models import RiceBlastAction, RiceBlastObservation, FieldObservation
 # Try to import openenv-core base classes
 try:
     from openenv.core.environment import Environment as _BaseEnvironment
-    try:
-        from openenv.core.models import StepResult
-    except ImportError:
-        try:
-            from openenv.core.env_server.types import StepResult
-        except ImportError:
-            from openenv.core.types import StepResult
-    try:
-        from openenv.core.env_server.types import State as _State
-    except ImportError:
-        _State = None
     OPENENV_AVAILABLE = True
 except ImportError:
     _BaseEnvironment = object
-    StepResult = None
-    _State = None
     OPENENV_AVAILABLE = False
+
+try:
+    from openenv.core.env_server.types import State as _State
+except ImportError:
+    _State = None
+
+try:
+    from openenv.core.models import StepResult
+except ImportError:
+    try:
+        from openenv.core.env_server.types import StepResult
+    except ImportError:
+        StepResult = None
 
 
 # ---------------------------------------------------------------------------
@@ -325,8 +325,8 @@ class RiceBlastEnvironment(_BaseEnvironment):
         """Async version of reset — returns observation for openenv-core server."""
         return self.reset(task=task, seed=seed)
 
-    def step(self, action: RiceBlastAction):
-        """Advance the simulation by one timestep and return result (sync)."""
+    def _step_raw(self, action: RiceBlastAction):
+        """Core step logic — returns (obs, reward, done, info) tuple."""
         if self._fields is None:
             raise RuntimeError("Environment must be reset before stepping")
         if self._done:
@@ -358,7 +358,6 @@ class RiceBlastEnvironment(_BaseEnvironment):
         )
 
         self._timestep += 1
-
         reward = self._compute_reward(action, prev_fields, self._fields)
         self._done = self._is_terminal()
 
@@ -391,21 +390,16 @@ class RiceBlastEnvironment(_BaseEnvironment):
         obs = self._build_observation()
         obs.reward = reward
         obs.done = self._done
-
-        if OPENENV_AVAILABLE and StepResult is not None:
-            return StepResult(observation=obs, reward=reward, done=self._done, info=info)
         return obs, reward, self._done, info
 
-    async def step_async(self, action: RiceBlastAction) -> RiceBlastObservation:
-        """Async version of step — returns just the observation for openenv-core server."""
-        result = self.step(action)
-        if isinstance(result, tuple):
-            obs = result[0]
-        elif hasattr(result, 'observation'):
-            obs = result.observation
-        else:
-            obs = result
+    def step(self, action: RiceBlastAction) -> RiceBlastObservation:
+        """Advance simulation one timestep — returns observation (openenv-core compatible)."""
+        obs, reward, done, info = self._step_raw(action)
         return obs
+
+    async def step_async(self, action: RiceBlastAction) -> RiceBlastObservation:
+        """Async version of step for openenv-core server."""
+        return self.step(action)
 
     @property
     def state(self):
@@ -547,10 +541,7 @@ class RiceBlastEnv:
         return self._env.reset(task=task, seed=seed)
 
     def step(self, action):
-        result = self._env.step(action)
-        if hasattr(result, "observation"):
-            return result.observation, result.reward, result.done, result.info
-        return result
+        return self._env._step_raw(action)
 
     def state(self):
         return self._env.state

@@ -10,14 +10,21 @@ VALID_INTERVENTIONS = ["do_nothing", "send_alert", "apply_fungicide", "call_agro
 def run_episode_sync(task, seed, actions):
     """Run a full episode synchronously for property testing."""
     env = RiceBlastEnvironment()
-    obs = env.reset(task, seed=seed)
+    env.reset(task, seed=seed)
     trajectory = []
     for action_str in actions:
         if env._done:
             break
         action = RiceBlastAction(intervention=action_str)
-        result = env.step(action)
-        obs, reward, done, info = result if isinstance(result, tuple) else (result.observation, result.reward, result.done, result.info)
+        obs = env.step(action)
+        info = {
+            "timestep": env._timestep,
+            "disease_stages": [f.disease_stage for f in env._fields],
+            "early_detections": [f.early_detection_recorded for f in env._fields],
+            "severities": [f.severity for f in env._fields],
+            "false_positive": obs.reward == -0.3,
+            "action_was_corrective": action_str in {"send_alert", "apply_fungicide", "call_agronomist"},
+        }
         trajectory.append(info)
     return obs, trajectory, env
 
