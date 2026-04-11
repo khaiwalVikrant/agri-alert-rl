@@ -398,6 +398,14 @@ class RiceBlastEnvironment(_BaseEnvironment):
         """Async version for direct async usage."""
         return self.state()
 
+    async def reset_async(self, task: str = "easy", seed: int | None = None) -> RiceBlastObservation:
+        """Async alias for reset — used by openenv-core web interface."""
+        return await self.reset(task=task, seed=seed)
+
+    async def step_async(self, action: RiceBlastAction):
+        """Async alias for step — used by openenv-core web interface."""
+        return await self.step(action)
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
