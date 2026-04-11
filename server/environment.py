@@ -383,6 +383,8 @@ class RiceBlastEnvironment(_BaseEnvironment):
         self._trajectory.append(info)
 
         obs = self._build_observation()
+        obs.reward = reward
+        obs.done = self._done
 
         if OPENENV_AVAILABLE and StepResult is not None:
             return StepResult(observation=obs, reward=reward, done=self._done, info=info)

@@ -44,6 +44,9 @@ class RiceBlastObservation(_BaseObservation):
     field_size_ha: float = Field(..., gt=0.0)
     fields: list[FieldObservation] = Field(default_factory=list)
     timestep: int = Field(..., ge=0)
+    # Required by openenv-core serialization
+    reward: float | None = Field(default=None)
+    done: bool = Field(default=False)
 
 
 class RiceBlastAction(_BaseAction):
