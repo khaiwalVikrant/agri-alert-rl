@@ -9,22 +9,17 @@ VALID_INTERVENTIONS = ["do_nothing", "send_alert", "apply_fungicide", "call_agro
 
 def run_episode_sync(task, seed, actions):
     """Run a full episode synchronously for property testing."""
-    import asyncio
-    loop = asyncio.new_event_loop()
-    try:
-        env = RiceBlastEnvironment()
-        obs = loop.run_until_complete(env.reset(task, seed=seed))
-        trajectory = []
-        for action_str in actions:
-            if env._done:
-                break
-            action = RiceBlastAction(intervention=action_str)
-            result = loop.run_until_complete(env.step(action))
-            obs, reward, done, info = result if isinstance(result, tuple) else (result.observation, result.reward, result.done, result.info)
-            trajectory.append(info)
-        return obs, trajectory, env
-    finally:
-        loop.close()
+    env = RiceBlastEnvironment()
+    obs = env.reset(task, seed=seed)
+    trajectory = []
+    for action_str in actions:
+        if env._done:
+            break
+        action = RiceBlastAction(intervention=action_str)
+        result = env.step(action)
+        obs, reward, done, info = result if isinstance(result, tuple) else (result.observation, result.reward, result.done, result.info)
+        trajectory.append(info)
+    return obs, trajectory, env
 
 @settings(max_examples=50)
 @given(
@@ -47,58 +42,41 @@ def test_observation_bounds(task, seed, actions):
 @given(seed=st.integers(0, 2**16 - 1))
 def test_disease_progression_without_intervention(seed):
     """Property 2: Disease reaches late stage within 24 timesteps of onset."""
-    import asyncio
-    loop = asyncio.new_event_loop()
-    try:
-        env = RiceBlastEnvironment()
-        loop.run_until_complete(env.reset("easy", seed=seed))
-        onset_ts = env._fields[0].onset_timestep
-        for _ in range(onset_ts + 25):
-            if env._done:
-                break
-            result = loop.run_until_complete(env.step(RiceBlastAction(intervention="do_nothing")))
-        # After onset + 24 steps of inaction, should be late or episode ended
-        stage = env._fields[0].disease_stage
-        ts = env._timestep
-        if ts >= onset_ts + 24:
-            assert stage == "late" or env._done
-    finally:
-        loop.close()
+    env = RiceBlastEnvironment()
+    env.reset("easy", seed=seed)
+    onset_ts = env._fields[0].onset_timestep
+    for _ in range(onset_ts + 25):
+        if env._done:
+            break
+        env.step(RiceBlastAction(intervention="do_nothing"))
+    stage = env._fields[0].disease_stage
+    ts = env._timestep
+    if ts >= onset_ts + 24:
+        assert stage == "late" or env._done
 
 @settings(max_examples=50)
 @given(seed=st.integers(0, 2**16 - 1))
 def test_fungicide_reduces_severity(seed):
     """Property 3: Fungicide reduces severity in early/mid stage."""
-    import asyncio
-    loop = asyncio.new_event_loop()
-    try:
-        env = RiceBlastEnvironment()
-        loop.run_until_complete(env.reset("easy", seed=seed))
-        # Force early stage
-        env._fields[0].severity = 0.12
-        env._fields[0].disease_stage = "early"
-        env._fields[0].days_since_treatment = 10  # no resistance
-        prev_severity = env._fields[0].severity
-        loop.run_until_complete(env.step(RiceBlastAction(intervention="apply_fungicide")))
-        assert env._fields[0].severity < prev_severity
-    finally:
-        loop.close()
+    env = RiceBlastEnvironment()
+    env.reset("easy", seed=seed)
+    env._fields[0].severity = 0.12
+    env._fields[0].disease_stage = "early"
+    env._fields[0].days_since_treatment = 10
+    prev_severity = env._fields[0].severity
+    env.step(RiceBlastAction(intervention="apply_fungicide"))
+    assert env._fields[0].severity < prev_severity
 
 @settings(max_examples=30)
 @given(seed=st.integers(0, 2**16 - 1))
 def test_state_is_nonmutating(seed):
     """Property 5: state() does not advance the episode."""
-    import asyncio
-    loop = asyncio.new_event_loop()
-    try:
-        env = RiceBlastEnvironment()
-        loop.run_until_complete(env.reset("easy", seed=seed))
-        ts_before = env._timestep
-        env.state()
-        env.state()
-        assert env._timestep == ts_before
-    finally:
-        loop.close()
+    env = RiceBlastEnvironment()
+    env.reset("easy", seed=seed)
+    ts_before = env._timestep
+    env.state()
+    env.state()
+    assert env._timestep == ts_before
 
 @settings(max_examples=100)
 @given(bad_action=st.text().filter(lambda s: s not in VALID_INTERVENTIONS and len(s) > 0))

@@ -268,8 +268,8 @@ class RiceBlastEnvironment(_BaseEnvironment):
     # Public async API
     # ------------------------------------------------------------------
 
-    async def reset(self, task: str = "easy", seed: int | None = None) -> RiceBlastObservation:
-        """Initialize a new episode and return the first observation."""
+    def reset(self, task: str = "easy", seed: int | None = None) -> RiceBlastObservation:
+        """Initialize a new episode and return the first observation (sync)."""
         self._rng = np.random.default_rng(seed)
         config = TASK_REGISTRY[task]
         self._task_config = config
@@ -278,7 +278,6 @@ class RiceBlastEnvironment(_BaseEnvironment):
         self._trajectory = []
         self._simulator = DiseaseSimulator(rng=self._rng, task_config=config)
 
-        # Initialize weather
         base_hum = float(self._rng.uniform(*config.base_humidity_range))
         self._weather = WeatherState(
             temperature=float(self._rng.uniform(20.0, 32.0)),
@@ -287,7 +286,6 @@ class RiceBlastEnvironment(_BaseEnvironment):
             wind_speed=float(max(0.0, self._rng.normal(3.0, 1.0))),
         )
 
-        # Initialize fields
         self._fields = []
         for i in range(config.num_fields):
             onset_ts = int(self._rng.integers(
@@ -312,14 +310,17 @@ class RiceBlastEnvironment(_BaseEnvironment):
 
         return self._build_observation()
 
-    async def step(self, action: RiceBlastAction):
-        """Advance the simulation by one timestep and return result."""
+    async def reset_async(self, task: str = "easy", seed: int | None = None) -> RiceBlastObservation:
+        """Async version of reset — used by openenv-core HTTP/WebSocket server."""
+        return self.reset(task=task, seed=seed)
+
+    def step(self, action: RiceBlastAction):
+        """Advance the simulation by one timestep and return result (sync)."""
         if self._fields is None:
             raise RuntimeError("Environment must be reset before stepping")
         if self._done:
             raise RuntimeError("Episode is done; call reset() to start a new episode")
         if action.target_field_id >= len(self._fields):
-            # Clamp to valid range instead of crashing — handles UI defaults sending field_id=1 on single-field tasks
             action = RiceBlastAction(
                 intervention=action.intervention,
                 target_field_id=len(self._fields) - 1,
@@ -327,15 +328,12 @@ class RiceBlastEnvironment(_BaseEnvironment):
 
         prev_fields = copy.deepcopy(self._fields)
 
-        # Advance all fields
         for f in self._fields:
             self._simulator.advance(f, self._timestep, self._weather)
 
-        # Apply intervention to target field
         target = self._fields[action.target_field_id]
         self._simulator.apply_intervention(target, action, self._timestep)
 
-        # Update weather with small noise
         std = self._task_config.humidity_noise_std
         self._weather = WeatherState(
             temperature=float(np.clip(
@@ -353,14 +351,11 @@ class RiceBlastEnvironment(_BaseEnvironment):
         reward = self._compute_reward(action, prev_fields, self._fields)
         self._done = self._is_terminal()
 
-        # Determine false positive: fungicide applied when target field had no disease
         target_prev = next(f for f in prev_fields if f.field_id == action.target_field_id)
         false_positive = (
             action.intervention == "apply_fungicide"
             and target_prev.disease_stage == "none"
         )
-
-        # Determine if action was corrective (for grader)
         action_was_corrective = action.intervention in {
             "send_alert", "apply_fungicide", "call_agronomist"
         }
@@ -390,8 +385,12 @@ class RiceBlastEnvironment(_BaseEnvironment):
             return StepResult(observation=obs, reward=reward, done=self._done, info=info)
         return obs, reward, self._done, info
 
+    async def step_async(self, action: RiceBlastAction):
+        """Async version of step — used by openenv-core HTTP/WebSocket server."""
+        return self.step(action)
+
     def state(self) -> RiceBlastObservation:
-        """Return current observation without advancing the episode (sync, required by openenv-core)."""
+        """Return current observation without advancing the episode."""
         if self._fields is None:
             raise RuntimeError("Environment must be reset before calling state()")
         return self._build_observation()
@@ -399,14 +398,6 @@ class RiceBlastEnvironment(_BaseEnvironment):
     async def async_state(self) -> RiceBlastObservation:
         """Async version for direct async usage."""
         return self.state()
-
-    async def reset_async(self, task: str = "easy", seed: int | None = None) -> RiceBlastObservation:
-        """Async alias for reset — used by openenv-core web interface."""
-        return await self.reset(task=task, seed=seed)
-
-    async def step_async(self, action: RiceBlastAction):
-        """Async alias for step — used by openenv-core web interface."""
-        return await self.step(action)
 
     # ------------------------------------------------------------------
     # Private helpers
