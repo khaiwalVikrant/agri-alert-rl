@@ -18,7 +18,13 @@ from models import RiceBlastAction, RiceBlastObservation, FieldObservation
 # Try to import openenv-core base classes
 try:
     from openenv.core.environment import Environment as _BaseEnvironment
-    from openenv.core.models import StepResult
+    try:
+        from openenv.core.models import StepResult
+    except ImportError:
+        try:
+            from openenv.core.env_server.types import StepResult
+        except ImportError:
+            from openenv.core.types import StepResult
     OPENENV_AVAILABLE = True
 except ImportError:
     _BaseEnvironment = object
@@ -311,7 +317,7 @@ class RiceBlastEnvironment(_BaseEnvironment):
         return self._build_observation()
 
     async def reset_async(self, task: str = "easy", seed: int | None = None) -> RiceBlastObservation:
-        """Async version of reset — used by openenv-core HTTP/WebSocket server."""
+        """Async version of reset — returns observation for openenv-core server."""
         return self.reset(task=task, seed=seed)
 
     def step(self, action: RiceBlastAction):
@@ -385,9 +391,14 @@ class RiceBlastEnvironment(_BaseEnvironment):
             return StepResult(observation=obs, reward=reward, done=self._done, info=info)
         return obs, reward, self._done, info
 
-    async def step_async(self, action: RiceBlastAction):
-        """Async version of step — used by openenv-core HTTP/WebSocket server."""
-        return self.step(action)
+    async def step_async(self, action: RiceBlastAction) -> RiceBlastObservation:
+        """Async version of step — returns just the observation for openenv-core server."""
+        result = self.step(action)
+        if isinstance(result, tuple):
+            obs, reward, done, info = result
+            return obs
+        # StepResult case
+        return result.observation
 
     def state(self) -> RiceBlastObservation:
         """Return current observation without advancing the episode."""
